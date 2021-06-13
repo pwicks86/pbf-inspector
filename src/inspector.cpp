@@ -28,6 +28,14 @@ static const size_t GB = MB * 1024;
 
 static const size_t INITIAL_BUFFER_SIZE = 256 * MB;
 
+struct Context {
+    Context() : base_file(nullptr), stash_buf(INITIAL_BUFFER_SIZE, osmium::memory::Buffer::auto_grow::yes) {}
+    Context(osmium::io::Reader &reader) : base_file(&reader), stash_buf(INITIAL_BUFFER_SIZE, osmium::memory::Buffer::auto_grow::yes) {}
+    osmium::io::Reader *base_file;
+    std::stack<osmium::memory::Buffer> buffer_stack;
+    osmium::memory::Buffer stash_buf;
+};
+
 std::vector<std::string> split(const std::string &in_str, const std::string &delim = " ") {
     std::string str{in_str};
     std::vector<std::string> words{};
@@ -86,6 +94,16 @@ public:
     }
 };
 
+class StashHandler : public osmium::handler::Handler {
+public:
+    Context &ctx;
+    StashHandler(Context &ctx) : ctx(ctx) {}
+    void node(const osmium::Node& node) {
+        ctx.stash_buf.add_item(node);
+        ctx.stash_buf.commit();
+    }
+};
+
 using json = nlohmann::json;
 class GeoJsonHandler : public osmium::handler::Handler {
 private:   
@@ -112,12 +130,6 @@ public:
     }
 };
 
-struct Context {
-    Context() : base_file(nullptr) {}
-    Context(osmium::io::Reader &reader) : base_file(&reader) {} 
-    osmium::io::Reader *base_file;
-    std::stack<osmium::memory::Buffer> buffer_stack;
-};
 
 void to_lower(std::string &s) {
     std::transform(s.begin(), s.end(), s.begin(),
@@ -216,11 +228,22 @@ bool handle_line_parts(const std::vector<std::string> &parts, Context &ctx) {
         std::cout << "name ?\n";
         std::getline(std::cin, outfile);
         std::string outfile_name = outfile + ".geojson";
+        bool use_stash = false;
+        auto get_buffer = [&ctx, &parts, &use_stash]() -> osmium::memory::Buffer& {
+            try {
+                if (parts.at(1) == "stash") {
+                    use_stash = true;
+                    return ctx.stash_buf;
+                }
+            } catch (std::out_of_range const &e) {
+            }
+            return ctx.buffer_stack.top();
+        };
         GeoJsonHandler gjh;
-        if (ctx.buffer_stack.size() == 0) {
+        if (ctx.buffer_stack.size() == 0 && !use_stash) {
             osmium::apply(*ctx.base_file, gjh);
         } else {
-            osmium::apply(ctx.buffer_stack.top(), gjh);
+            osmium::apply(get_buffer(), gjh);
         }
         auto json = gjh.get_json();
         std::ofstream of(outfile_name);
@@ -240,6 +263,15 @@ bool handle_line_parts(const std::vector<std::string> &parts, Context &ctx) {
 
     } else if (cmd == "quit") {
         return false;
+    } else if (cmd == "stash") {
+        StashHandler sh{ctx};
+        if (ctx.buffer_stack.size() == 0) {
+            osmium::apply(*ctx.base_file, sh);
+        } else {
+            osmium::apply(ctx.buffer_stack.top(), sh);
+        }
+    } else if (cmd == "clrstash") {
+        ctx.stash_buf.clear();
     } else {
         std::cout << "Invalid cmd\n";
     }    
