@@ -96,7 +96,6 @@ public:
         geojson["type"] = "FeatureCollection";
     }
     void node(const osmium::Node& node) {
-        std::cout << "YEAAAAAAAAAAAAAAA" << std::endl;
         json feature;
         feature["type"] = "Feature";
         for(auto &tag : node.tags()) {
@@ -142,7 +141,9 @@ bool ask(std::string prompt) {
 }
 
 bool handle_line_parts(const std::vector<std::string> &parts, Context &ctx) {
-    std::cout << parts.size() << "\n";
+    if (parts.size() == 0) {
+        return true;
+    }
     std::string cmd = parts[0];
     if (cmd == "filter") {
         // Build a tags filter out of the rest
@@ -225,7 +226,18 @@ bool handle_line_parts(const std::vector<std::string> &parts, Context &ctx) {
         std::ofstream of(outfile_name);
         of << json;
     } else if (cmd == "pop") {
-        ctx.buffer_stack.pop();
+        if (ctx.buffer_stack.size() > 1) {
+            ctx.buffer_stack.pop();
+            std::cout << ctx.buffer_stack.size() << " entries remaining on stack\n";
+        } else {
+            if (ctx.base_file == nullptr) {
+                std::cout << "No file to fall back to!\n";
+            } else if (ctx.buffer_stack.size() > 0) {
+                ctx.buffer_stack.pop();
+                std::cout << ctx.buffer_stack.size() << " entries remaining on stack\n";
+            }
+        }
+
     } else if (cmd == "quit") {
         return false;
     } else {
@@ -246,6 +258,8 @@ void completion(const char *buf, linenoiseCompletions *lc) {
         linenoiseAddCompletion(lc,"save");
     } else if (buf[0] == 'e') {
         linenoiseAddCompletion(lc,"export");
+    } else if (buf[0] == 'q') {
+        linenoiseAddCompletion(lc,"quit");
     }
 }
 
