@@ -15,6 +15,9 @@ project(
   VERSION 1.0
   LANGUAGES CXX C)
 
+set (CMAKE_CXX_STANDARD 17)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+
 include(FetchContent)
 
 # linenoise
@@ -31,14 +34,26 @@ add_library(linenoise ${linenoise_SOURCE_DIR}/linenoise.c)
 set_target_properties(linenoise PROPERTIES LINKER_LANGUAGE C)
 target_include_directories(linenoise PUBLIC ${linenoise_SOURCE_DIR})
 
-# add_executable(example example.cc)
-# target_link_libraries(example asio)
+# Osmium
+find_package(Osmium REQUIRED COMPONENTS io xml)
+include_directories(SYSTEM ${OSMIUM_INCLUDE_DIRS})
 
+# cxxopts
+FetchContent_Declare(
+  cxxopts
+  GIT_REPOSITORY git@github.com:jarro2783/cxxopts.git
+  GIT_TAG v2.2.1 
+)
+FetchContent_MakeAvailable(cxxopts)
 
+# nlohmann::json
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY git@github.com:ArthurSonzogni/nlohmann_json_cmake_fetchcontent.git
+  GIT_TAG v3.9.1
+)
+FetchContent_MakeAvailable(nlohmann_json)
 
-# If you set any CMAKE_ variables, that can go here.
-# (But usually don't do this, except maybe for C++ standard)
-set (CMAKE_CXX_STANDARD 17)
 
 # Find packages go here.
 
