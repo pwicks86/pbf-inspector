@@ -1,6 +1,7 @@
 #include <sstream>
 #include <stack>
 #include <set>
+#include <regex>
 #include <fstream>
 #include <iterator>
 #include <cstddef>
@@ -156,7 +157,7 @@ bool handle_line_parts(const std::vector<std::string> &parts, Context &ctx) {
             if (filter_parts.size() == 2) {
                 // match key and value here
                 std::cout << "key = " << filter_parts[0] << ", item = " << filter_parts[1] << "\n";
-                tf.add_rule(!invert, osmium::TagMatcher{filter_parts[0], filter_parts[1]});
+                tf.add_rule(!invert, osmium::TagMatcher{std::regex(filter_parts[0]), std::regex(filter_parts[1])});
             } else {
                 std::cout << "key = " << filter_parts[0] << "\n";
                 // Just match key here
